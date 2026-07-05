@@ -66,7 +66,6 @@ export default function DashboardOrangtua() {
   const [activeTab, setActiveTab] = useState('beranda');
   const [frame, setFrame] = useState(0);
   const [pos, setPos] = useState({ a1: 10, a2: 150 });
-
   const [showProfilModal, setShowProfilModal] = useState(false);
   const [showAnakModal, setShowAnakModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
@@ -74,7 +73,6 @@ export default function DashboardOrangtua() {
   const [editingNama, setEditingNama] = useState(false);
   const [namaInput, setNamaInput] = useState('');
   const [savingNama, setSavingNama] = useState(false);
-
   const [chatList, setChatList] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [sendingChat, setSendingChat] = useState(false);
@@ -153,27 +151,18 @@ export default function DashboardOrangtua() {
 
   const fetchChat = async () => {
     if (!userId) return;
-    const { data, error } = await supabase.from('pesan_bantuan').select('*')
+    const { data } = await supabase.from('pesan_bantuan').select('*')
       .eq('orangtua_id', userId).order('created_at', { ascending: true });
-    if (error) {
-      console.error('Gagal memuat chat:', error.message);
-      return;
-    }
     setChatList(data || []);
   };
 
   const handleSendChat = async () => {
-    if (!chatInput.trim()) return;
-    if (!userId) { alert('Sesi tidak valid, silakan login ulang!'); return; }
+    if (!chatInput.trim() || !userId) return;
     setSendingChat(true);
-    const { error } = await supabase.from('pesan_bantuan').insert({
+    await supabase.from('pesan_bantuan').insert({
       orangtua_id: userId, pengirim: 'orangtua', isi_pesan: chatInput.trim(), dibaca: false
     });
     setSendingChat(false);
-    if (error) {
-      alert('Gagal mengirim pesan: ' + error.message);
-      return;
-    }
     setChatInput('');
     fetchChat();
   };
@@ -184,11 +173,10 @@ export default function DashboardOrangtua() {
   };
 
   const handleSaveNama = async () => {
-    if (!namaInput.trim()) { alert('Nama tidak boleh kosong!'); return; }
+    if (!namaInput.trim()) return;
     setSavingNama(true);
-    const { error } = await supabase.from('profiles').update({ full_name: namaInput.trim() }).eq('id', userId);
+    await supabase.from('profiles').update({ full_name: namaInput.trim() }).eq('id', userId);
     setSavingNama(false);
-    if (error) { alert('Gagal menyimpan nama: ' + error.message); return; }
     setNamaOrtu(namaInput.trim());
     setEditingNama(false);
   };
@@ -196,59 +184,33 @@ export default function DashboardOrangtua() {
   const handleFotoChange = async (e) => {
     const file = e.target.files[0];
     if (!file || !selectedAnak) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Ukuran foto maksimal 2MB!');
-      return;
-    }
-
+    if (file.size > 2 * 1024 * 1024) { alert('Maksimal 2MB!'); return; }
     setUploading(true);
-    try {
-      const ext = file.name.split('.').pop();
-      const fileName = `${selectedAnak.id}_${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('foto-siswa')
-        .upload(fileName, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage.from('foto-siswa').getPublicUrl(fileName);
-      const fotoUrl = urlData.publicUrl;
-
-      await supabase.from('siswa').update({ foto_url: fotoUrl }).eq('id', selectedAnak.id);
-
-      setSelectedAnak({ ...selectedAnak, foto_url: fotoUrl });
-      setAnakList(anakList.map(a => a.id === selectedAnak.id ? { ...a, foto_url: fotoUrl } : a));
-      alert('✅ Foto berhasil diupload!');
-    } catch (err) {
-      alert('Gagal upload foto: ' + err.message);
-    } finally {
-      setUploading(false);
-    }
+    const ext = file.name.split('.').pop();
+    const fileName = `${selectedAnak.id}_${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('foto-siswa').upload(fileName, file, { upsert: true });
+    if (error) { alert('Gagal upload: ' + error.message); setUploading(false); return; }
+    const { data: urlData } = supabase.storage.from('foto-siswa').getPublicUrl(fileName);
+    await supabase.from('siswa').update({ foto_url: urlData.publicUrl }).eq('id', selectedAnak.id);
+    setSelectedAnak({ ...selectedAnak, foto_url: urlData.publicUrl });
+    setAnakList(anakList.map(a => a.id === selectedAnak.id ? { ...a, foto_url: urlData.publicUrl } : a));
+    setUploading(false);
   };
 
   const rataRata = nilaiList.length > 0
-    ? (nilaiList.reduce((a, b) => a + (b.nilai_akhir || 0), 0) / nilaiList.length).toFixed(1)
-    : 0;
-
+    ? (nilaiList.reduce((a, b) => a + (b.nilai_akhir || 0), 0) / nilaiList.length).toFixed(1) : 0;
   const persen = absensiRekap.total > 0
-    ? Math.round((absensiRekap.Hadir / absensiRekap.total) * 100)
-    : 0;
-
+    ? Math.round((absensiRekap.Hadir / absensiRekap.total) * 100) : 0;
   const pieData = [
     { name: 'Hadir', value: absensiRekap.Hadir, color: '#22C55E' },
     { name: 'Izin', value: absensiRekap.Izin, color: '#EAB308' },
     { name: 'Sakit', value: absensiRekap.Sakit, color: '#3B82F6' },
     { name: 'Alpa', value: absensiRekap.Alpa, color: '#EF4444' },
   ].filter(d => d.value > 0);
-
-  const nilaiChartData = nilaiList.map(n => ({
-    name: n.mata_pelajaran?.nama?.substring(0, 5),
-    nilai: n.nilai_akhir || 0
-  }));
-
+  const nilaiChartData = nilaiList.map(n => ({ name: n.mata_pelajaran?.nama?.substring(0, 5), nilai: n.nilai_akhir || 0 }));
   const tingkatMedal = { Sekolah: '🥉', Kecamatan: '🎖️', Kota: '🥈', Provinsi: '🥇', Nasional: '🏆' };
+  const bob1 = Math.sin(frame * 0.4) * 1.5;
+  const bob2 = Math.sin(frame * 0.4 + 2) * 1.5;
 
   const bottomNav = [
     { id: 'beranda', icon: <FiHome size={22} />, label: 'Beranda' },
@@ -258,30 +220,20 @@ export default function DashboardOrangtua() {
     { id: 'akun', icon: <FiUser size={22} />, label: 'Akun' },
   ];
 
-  const bob1 = Math.sin(frame * 0.4) * 1.5;
-  const bob2 = Math.sin(frame * 0.4 + 2) * 1.5;
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col max-w-lg mx-auto" style={{ position: 'relative' }}>
-
-      <div style={{ flex: 1, paddingBottom: '90px', overflowX: 'hidden' }}>
+    <div className="min-h-screen bg-gray-50 flex flex-col max-w-lg mx-auto">
+      <div style={{ flex: 1, paddingBottom: '90px' }}>
 
         {activeTab === 'beranda' && (
           <div>
             <div className="bg-red-600 text-white px-5 pt-8 pb-2 relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #CC0000 0%, #FF3333 60%, #CC0000 100%)' }}>
-              <div className="absolute top-4 right-4 text-3xl opacity-20">🎓</div>
               <p className="text-red-200 text-sm">Halo,</p>
               <h1 className="text-xl font-bold">{namaOrtu || 'Orang Tua'} 👋</h1>
-              <p className="text-red-100 text-xs mt-1 mb-3">Berikut perkembangan belajar anak Anda hari ini</p>
-
-              <div style={{ position: 'relative', height: '56px', overflow: 'hidden', marginTop: '4px' }}>
-                <div style={{ position: 'absolute', bottom: '0', left: `${pos.a1}%`, transition: 'left 0.07s linear', transform: `translateY(${bob1}px)` }}>
-                  <AnakSDMini />
-                </div>
-                <div style={{ position: 'absolute', bottom: '0', left: `${pos.a2}%`, transition: 'left 0.07s linear', transform: `translateY(${bob2}px)` }}>
-                  <AnakSDPerempuanMini />
-                </div>
-                <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', height: '6px', background: 'rgba(255,255,255,0.15)' }} />
+              <p className="text-red-100 text-xs mt-1 mb-3">Berikut perkembangan belajar anak Anda</p>
+              <div style={{ position: 'relative', height: '56px', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', bottom: 0, left: `${pos.a1}%`, transform: `translateY(${bob1}px)` }}><AnakSDMini /></div>
+                <div style={{ position: 'absolute', bottom: 0, left: `${pos.a2}%`, transform: `translateY(${bob2}px)` }}><AnakSDPerempuanMini /></div>
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '6px', background: 'rgba(255,255,255,0.15)' }} />
               </div>
             </div>
 
@@ -289,25 +241,20 @@ export default function DashboardOrangtua() {
               {selectedAnak && (
                 <div className="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4">
                   <button type="button" onClick={() => setShowAnakModal(true)} style={{ position: 'relative', flexShrink: 0 }}>
-                    {selectedAnak.foto_url ? (
-                      <img src={selectedAnak.foto_url} alt="" className="w-14 h-14 rounded-full object-cover" />
-                    ) : (
-                      <div className="bg-red-100 text-red-600 w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold">
-                        {selectedAnak.full_name?.charAt(0)}
-                      </div>
-                    )}
+                    {selectedAnak.foto_url
+                      ? <img src={selectedAnak.foto_url} alt="" className="w-14 h-14 rounded-full object-cover" />
+                      : <div className="bg-red-100 text-red-600 w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold">{selectedAnak.full_name?.charAt(0)}</div>}
                     <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', background: '#CC0000', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white' }}>
                       <FiCamera size={10} color="white" />
                     </div>
                   </button>
-                  <button type="button" onClick={() => setShowAnakModal(true)} className="flex-1 text-left">
+                  <div className="flex-1">
                     <p className="font-bold text-gray-800 text-lg">{selectedAnak.full_name}</p>
                     <p className="text-red-500 text-sm font-medium">{selectedAnak.kelas?.nama_kelas}</p>
                     <p className="text-gray-400 text-xs">NIS: {selectedAnak.nis}</p>
-                  </button>
+                  </div>
                   {anakList.length > 1 && (
-                    <select onChange={e => setSelectedAnak(anakList.find(a => a.id === e.target.value))}
-                      className="text-xs border rounded-lg px-2 py-1 text-red-600">
+                    <select onChange={e => setSelectedAnak(anakList.find(a => a.id === e.target.value))} className="text-xs border rounded-lg px-2 py-1 text-red-600">
                       {anakList.map(a => <option key={a.id} value={a.id}>{a.full_name}</option>)}
                     </select>
                   )}
@@ -328,8 +275,7 @@ export default function DashboardOrangtua() {
                       <div className="relative w-14 h-14">
                         <svg viewBox="0 0 36 36" className="w-14 h-14 -rotate-90">
                           <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f3f4f6" strokeWidth="3" />
-                          <circle cx="18" cy="18" r="15.9" fill="none" stroke="#22C55E" strokeWidth="3"
-                            strokeDasharray={`${persen} ${100 - persen}`} strokeLinecap="round" />
+                          <circle cx="18" cy="18" r="15.9" fill="none" stroke="#22C55E" strokeWidth="3" strokeDasharray={`${persen} ${100 - persen}`} strokeLinecap="round" />
                         </svg>
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span className="text-xs font-bold text-green-600">{persen}%</span>
@@ -338,13 +284,9 @@ export default function DashboardOrangtua() {
                       <div>
                         <p className="text-lg font-bold text-gray-800">{absensiRekap.Hadir}</p>
                         <p className="text-xs text-gray-400">dari {absensiRekap.total} hari</p>
-                        <p className="text-xs text-green-500 font-medium">
-                          {persen >= 90 ? 'Sangat Baik' : persen >= 75 ? 'Baik' : 'Perlu Perhatian'}
-                        </p>
                       </div>
                     </div>
                   </div>
-
                   <div className="bg-white rounded-2xl p-4 shadow-sm">
                     <p className="text-xs text-gray-500 mb-2 font-medium">Rata-rata Nilai</p>
                     <div className="flex items-center gap-3">
@@ -353,9 +295,6 @@ export default function DashboardOrangtua() {
                       </div>
                       <div>
                         <p className="text-xs text-gray-400">{nilaiList.length} mapel</p>
-                        <p className="text-xs text-blue-500 font-medium">
-                          {rataRata >= 90 ? 'Sangat Baik' : rataRata >= 75 ? 'Baik' : rataRata >= 60 ? 'Cukup' : 'Kurang'}
-                        </p>
                       </div>
                     </div>
                   </div>
@@ -379,9 +318,7 @@ export default function DashboardOrangtua() {
 
               {prestasi.length > 0 && (
                 <div className="bg-white rounded-2xl p-4 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-gray-800">🏆 Prestasi Terbaru</h3>
-                  </div>
+                  <h3 className="font-bold text-gray-800 mb-3">🏆 Prestasi Terbaru</h3>
                   {prestasi.map(p => (
                     <div key={p.id} className="flex items-center gap-3 py-2 border-b last:border-0">
                       <span className="text-2xl">{tingkatMedal[p.tingkat] || '🏆'}</span>
@@ -397,9 +334,8 @@ export default function DashboardOrangtua() {
               {pengumuman.length > 0 && (
                 <div className="bg-white rounded-2xl p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-gray-800">📢 Pengumuman Terbaru</h3>
-                    <button type="button" onClick={() => setActiveTab('pengumuman')}
-                      className="text-xs text-red-600 font-medium">Lihat Semua</button>
+                    <h3 className="font-bold text-gray-800">📢 Pengumuman</h3>
+                    <button type="button" onClick={() => setActiveTab('pengumuman')} className="text-xs text-red-600 font-medium">Lihat Semua</button>
                   </div>
                   {pengumuman.map(p => (
                     <div key={p.id} className="flex items-start gap-3 py-2 border-b last:border-0">
@@ -407,7 +343,6 @@ export default function DashboardOrangtua() {
                       <div>
                         <p className="font-semibold text-gray-800 text-sm">{p.judul}</p>
                         <p className="text-xs text-gray-400">{p.tanggal_tayang}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{p.isi}</p>
                       </div>
                     </div>
                   ))}
@@ -419,9 +354,7 @@ export default function DashboardOrangtua() {
 
         {activeTab === 'absensi' && (
           <div>
-            <div className="bg-red-600 text-white px-5 py-4">
-              <h2 className="text-xl font-bold">Absensi</h2>
-            </div>
+            <div className="bg-red-600 text-white px-5 py-4"><h2 className="text-xl font-bold">Absensi</h2></div>
             <div className="p-4 space-y-4">
               {selectedAnak ? (
                 <>
@@ -432,37 +365,19 @@ export default function DashboardOrangtua() {
                         {pieData.length > 0 ? (
                           <PieChart width={96} height={96}>
                             <Pie data={pieData} cx={44} cy={44} innerRadius={30} outerRadius={44} dataKey="value">
-                              {pieData.map((entry, index) => (
-                                <Cell key={index} fill={entry.color} />
-                              ))}
+                              {pieData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                             </Pie>
                           </PieChart>
                         ) : (
-                          <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center">
-                            <span className="text-gray-400 text-xs">Belum ada</span>
-                          </div>
+                          <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center"><span className="text-gray-400 text-xs">Belum ada</span></div>
                         )}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="text-center">
-                            <p className="text-lg font-bold text-gray-800">{absensiRekap.total}</p>
-                            <p className="text-xs text-gray-400">Total</p>
-                          </div>
-                        </div>
                       </div>
                       <div className="space-y-2">
-                        {[
-                          { label: 'Hadir', val: absensiRekap.Hadir, color: 'bg-green-500' },
-                          { label: 'Izin', val: absensiRekap.Izin, color: 'bg-yellow-400' },
-                          { label: 'Sakit', val: absensiRekap.Sakit, color: 'bg-blue-500' },
-                          { label: 'Alpa', val: absensiRekap.Alpa, color: 'bg-red-500' },
-                        ].map(item => (
+                        {[{ label: 'Hadir', val: absensiRekap.Hadir, color: 'bg-green-500' }, { label: 'Izin', val: absensiRekap.Izin, color: 'bg-yellow-400' }, { label: 'Sakit', val: absensiRekap.Sakit, color: 'bg-blue-500' }, { label: 'Alpa', val: absensiRekap.Alpa, color: 'bg-red-500' }].map(item => (
                           <div key={item.label} className="flex items-center gap-2">
                             <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
                             <span className="text-sm text-gray-600">{item.label}</span>
                             <span className="text-sm font-bold text-gray-800">{item.val}</span>
-                            <span className="text-xs text-gray-400">
-                              ({absensiRekap.total > 0 ? Math.round(item.val / absensiRekap.total * 100) : 0}%)
-                            </span>
                           </div>
                         ))}
                       </div>
@@ -470,190 +385,80 @@ export default function DashboardOrangtua() {
                   </div>
                   <AbsensiDetail siswaId={selectedAnak.id} />
                 </>
-              ) : (
-                <div className="text-center py-10 text-gray-400">
-                  <p className="text-4xl mb-2">📋</p>
-                  <p>Data anak belum tersedia</p>
-                </div>
-              )}
+              ) : <div className="text-center py-10 text-gray-400"><p className="text-4xl mb-2">📋</p><p>Data anak belum tersedia</p></div>}
             </div>
           </div>
         )}
 
         {activeTab === 'nilai' && (
           <div>
-            <div className="bg-red-600 text-white px-5 py-4">
-              <h2 className="text-xl font-bold">Nilai</h2>
-            </div>
+            <div className="bg-red-600 text-white px-5 py-4"><h2 className="text-xl font-bold">Nilai</h2></div>
             <div className="p-4 space-y-4">
               {nilaiList.length > 0 ? (
-                <>
-                  <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
-                    <p className="text-gray-500 text-sm">Rata-rata Nilai</p>
-                    <p className="text-5xl font-bold text-gray-800 my-2">{rataRata}</p>
-                    <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                      rataRata >= 90 ? 'bg-green-100 text-green-600'
-                      : rataRata >= 75 ? 'bg-blue-100 text-blue-600'
-                      : 'bg-yellow-100 text-yellow-600'
-                    }`}>
-                      {rataRata >= 90 ? 'Sangat Baik' : rataRata >= 75 ? 'Baik' : 'Cukup'}
-                    </span>
-                  </div>
-
-                  {nilaiChartData.length > 0 && (
-                    <div className="bg-white rounded-2xl p-4 shadow-sm">
-                      <h3 className="font-bold text-gray-800 mb-3">Grafik Nilai</h3>
-                      <ResponsiveContainer width="100%" height={180}>
-                        <LineChart data={nilaiChartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                          <YAxis domain={[60, 100]} tick={{ fontSize: 10 }} />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="nilai" stroke="#CC0000" strokeWidth={2} dot={{ fill: '#CC0000', r: 4 }} />
-                        </LineChart>
-                      </ResponsiveContainer>
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                  <h3 className="font-bold text-gray-800 mb-3">Nilai Mata Pelajaran</h3>
+                  {nilaiList.map(item => (
+                    <div key={item.id} className="flex items-center justify-between py-3 border-b last:border-0">
+                      <p className="text-gray-700 font-medium">{item.mata_pelajaran?.nama}</p>
+                      <span className="text-lg font-bold text-gray-800">{item.nilai_akhir || '-'}</span>
                     </div>
-                  )}
-
-                  <div className="bg-white rounded-2xl p-4 shadow-sm">
-                    <h3 className="font-bold text-gray-800 mb-3">Nilai Mata Pelajaran</h3>
-                    {nilaiList.map(item => (
-                      <div key={item.id} className="flex items-center justify-between py-3 border-b last:border-0">
-                        <p className="text-gray-700 font-medium">{item.mata_pelajaran?.nama}</p>
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg font-bold text-gray-800">{item.nilai_akhir || '-'}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                            item.nilai_akhir >= 90 ? 'bg-green-100 text-green-600'
-                            : item.nilai_akhir >= 75 ? 'bg-blue-100 text-blue-600'
-                            : item.nilai_akhir >= 60 ? 'bg-yellow-100 text-yellow-600'
-                            : 'bg-red-100 text-red-600'
-                          }`}>
-                            {item.nilai_akhir >= 90 ? 'A' : item.nilai_akhir >= 75 ? 'B' : item.nilai_akhir >= 60 ? 'C' : 'D'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-10 text-gray-400">
-                  <p className="text-4xl mb-2">📝</p>
-                  <p>Belum ada data nilai</p>
+                  ))}
                 </div>
-              )}
+              ) : <div className="text-center py-10 text-gray-400"><p className="text-4xl mb-2">📝</p><p>Belum ada data nilai</p></div>}
             </div>
           </div>
         )}
 
         {activeTab === 'pengumuman' && (
           <div>
-            <div className="bg-red-600 text-white px-5 py-4">
-              <h2 className="text-xl font-bold">Pengumuman</h2>
-            </div>
+            <div className="bg-red-600 text-white px-5 py-4"><h2 className="text-xl font-bold">Pengumuman</h2></div>
             <div className="p-4 space-y-3">
-              {pengumuman.length === 0 ? (
-                <div className="text-center py-10 text-gray-400">
-                  <p className="text-4xl mb-2">📢</p>
-                  <p>Belum ada pengumuman</p>
-                </div>
-              ) : pengumuman.map(item => (
-                <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${item.penting ? 'bg-red-100' : 'bg-purple-100'}`}>
-                      {item.penting ? '🚨' : '📢'}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
+              {pengumuman.length === 0
+                ? <div className="text-center py-10 text-gray-400"><p className="text-4xl mb-2">📢</p><p>Belum ada pengumuman</p></div>
+                : pengumuman.map(item => (
+                  <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${item.penting ? 'bg-red-100' : 'bg-purple-100'}`}>{item.penting ? '🚨' : '📢'}</div>
+                      <div>
                         <p className="font-semibold text-gray-800">{item.judul}</p>
-                        {item.penting && <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">Penting</span>}
+                        <p className="text-xs text-gray-400 mt-0.5">{item.tanggal_tayang}</p>
+                        <p className="text-sm text-gray-600 mt-2">{item.isi}</p>
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5">{item.tanggal_tayang}</p>
-                      <p className="text-sm text-gray-600 mt-2">{item.isi}</p>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
         )}
 
         {activeTab === 'akun' && (
           <div>
-            <div className="bg-red-600 text-white px-5 py-4">
-              <h2 className="text-xl font-bold">Akun</h2>
-            </div>
+            <div className="bg-red-600 text-white px-5 py-4"><h2 className="text-xl font-bold">Akun</h2></div>
             <div className="p-4 space-y-4">
-              {selectedAnak && (
-                <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
-                  {selectedAnak.foto_url ? (
-                    <img src={selectedAnak.foto_url} alt="" className="w-20 h-20 rounded-full object-cover mx-auto mb-3" />
-                  ) : (
-                    <div className="bg-red-100 text-red-600 w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-3">
-                      {selectedAnak.full_name?.charAt(0)}
-                    </div>
-                  )}
-                  <p className="font-bold text-xl text-gray-800">{selectedAnak.full_name}</p>
-                  <p className="text-red-500 font-medium">{selectedAnak.kelas?.nama_kelas}</p>
-                  <p className="text-gray-400 text-sm">NIS: {selectedAnak.nis}</p>
-                </div>
-              )}
-
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <button type="button" onClick={() => setShowProfilModal(true)}
-                  className="w-full flex items-center gap-4 px-4 py-4 border-b text-left">
+                <button type="button" onClick={() => setShowProfilModal(true)} className="w-full flex items-center gap-4 px-4 py-4 border-b text-left">
                   <span className="text-2xl">👤</span>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">Profil Orang Tua</p>
-                    <p className="text-xs text-gray-400">{namaOrtu}</p>
-                  </div>
+                  <div className="flex-1"><p className="font-medium text-gray-800">Profil Orang Tua</p><p className="text-xs text-gray-400">{namaOrtu}</p></div>
                   <span className="text-gray-300">›</span>
                 </button>
-
-                <button type="button" onClick={() => setShowAnakModal(true)}
-                  className="w-full flex items-center gap-4 px-4 py-4 border-b text-left">
-                  <span className="text-2xl">👶</span>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">Data Anak</p>
-                    <p className="text-xs text-gray-400">{anakList.length} anak terdaftar</p>
-                  </div>
-                  <span className="text-gray-300">›</span>
-                </button>
-
-                <button type="button" onClick={() => setShowChatModal(true)}
-                  className="w-full flex items-center gap-4 px-4 py-4 border-b text-left">
+                <button type="button" onClick={() => setShowChatModal(true)} className="w-full flex items-center gap-4 px-4 py-4 border-b text-left">
                   <span className="text-2xl">💬</span>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">Bantuan</p>
-                    <p className="text-xs text-gray-400">Chat dengan admin sekolah</p>
-                  </div>
+                  <div className="flex-1"><p className="font-medium text-gray-800">Bantuan</p><p className="text-xs text-gray-400">Chat dengan admin sekolah</p></div>
                   <span className="text-gray-300">›</span>
                 </button>
-
-                <div className="w-full flex items-center gap-4 px-4 py-4">
-                  <span className="text-2xl">ℹ️</span>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">Tentang Aplikasi</p>
-                    <p className="text-xs text-gray-400">Monitoring Siswa SD v1.0</p>
-                  </div>
-                </div>
               </div>
-
-              <button type="button" onClick={handleLogout}
-                className="w-full bg-red-600 text-white py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2">
+              <button type="button" onClick={handleLogout} className="w-full bg-red-600 text-white py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2">
                 <FiLogOut /> Keluar
               </button>
             </div>
           </div>
         )}
-
       </div>
 
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, maxWidth: '512px', margin: '0 auto', background: 'white', borderTop: '1px solid #e5e7eb', display: 'flex', zIndex: 50 }}>
         {bottomNav.map(item => (
           <button key={item.id} type="button" onClick={() => setActiveTab(item.id)}
-            className={`flex-1 py-3 flex flex-col items-center gap-1 transition ${
-              activeTab === item.id ? 'text-red-600' : 'text-gray-400'
-            }`}>
+            className={`flex-1 py-3 flex flex-col items-center gap-1 transition ${activeTab === item.id ? 'text-red-600' : 'text-gray-400'}`}>
             {item.icon}
             <span className="text-xs font-medium">{item.label}</span>
             {activeTab === item.id && <div className="w-1 h-1 bg-red-600 rounded-full"></div>}
@@ -665,59 +470,26 @@ export default function DashboardOrangtua() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => { setShowProfilModal(false); setEditingNama(false); }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800">Profil Orang Tua</h2>
-              <button type="button" onClick={() => { setShowProfilModal(false); setEditingNama(false); }}><FiX size={20} /></button>
+              <h2 className="text-lg font-bold">Profil Orang Tua</h2>
+              <button type="button" onClick={() => setShowProfilModal(false)}><FiX size={20} /></button>
             </div>
             <div className="text-center mb-4">
-              <div className="bg-red-100 text-red-600 w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-3">
-                {namaOrtu?.charAt(0) || 'O'}
-              </div>
-
+              <div className="bg-red-100 text-red-600 w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-3">{namaOrtu?.charAt(0) || 'O'}</div>
               {editingNama ? (
                 <div className="px-2">
-                  <input
-                    value={namaInput}
-                    onChange={e => setNamaInput(e.target.value)}
-                    placeholder="Nama lengkap"
-                    autoFocus
-                    className="w-full text-center px-3 py-2 border-2 border-red-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 font-bold text-lg"
-                  />
+                  <input value={namaInput} onChange={e => setNamaInput(e.target.value)} autoFocus className="w-full text-center px-3 py-2 border-2 border-red-300 rounded-xl focus:outline-none font-bold text-lg" />
                   <div className="flex gap-2 mt-3">
-                    <button type="button" onClick={() => setEditingNama(false)}
-                      className="flex-1 py-2 border rounded-xl text-gray-600 text-sm font-medium">
-                      Batal
-                    </button>
-                    <button type="button" onClick={handleSaveNama} disabled={savingNama}
-                      className="flex-1 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold">
-                      {savingNama ? 'Menyimpan...' : 'Simpan'}
-                    </button>
+                    <button type="button" onClick={() => setEditingNama(false)} className="flex-1 py-2 border rounded-xl text-gray-600 text-sm">Batal</button>
+                    <button type="button" onClick={handleSaveNama} disabled={savingNama} className="flex-1 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold">{savingNama ? 'Menyimpan...' : 'Simpan'}</button>
                   </div>
                 </div>
               ) : (
                 <>
                   <p className="font-bold text-xl text-gray-800">{namaOrtu}</p>
-                  <p className="text-gray-400 text-sm mb-2">Orang Tua Siswa</p>
-                  <button type="button"
-                    onClick={() => { setNamaInput(namaOrtu); setEditingNama(true); }}
-                    className="text-xs text-red-600 font-semibold border border-red-200 rounded-full px-4 py-1.5">
-                    ✏️ Edit Nama
-                  </button>
+                  <button type="button" onClick={() => { setNamaInput(namaOrtu); setEditingNama(true); }} className="text-xs text-red-600 font-semibold border border-red-200 rounded-full px-4 py-1.5 mt-2">✏️ Edit Nama</button>
                 </>
               )}
             </div>
-
-            {!editingNama && (
-              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">Nama Lengkap</span>
-                  <span className="text-sm font-medium text-gray-800">{namaOrtu}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">Jumlah Anak</span>
-                  <span className="text-sm font-medium text-gray-800">{anakList.length} anak</span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -726,56 +498,26 @@ export default function DashboardOrangtua() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowAnakModal(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800">Data Anak</h2>
+              <h2 className="text-lg font-bold">Data Anak</h2>
               <button type="button" onClick={() => setShowAnakModal(false)}><FiX size={20} /></button>
             </div>
-
             <div className="text-center mb-4">
               <button type="button" onClick={() => fileInputRef.current?.click()} style={{ position: 'relative', display: 'inline-block' }} disabled={uploading}>
-                {selectedAnak.foto_url ? (
-                  <img src={selectedAnak.foto_url} alt="" className="w-24 h-24 rounded-full object-cover mx-auto" />
-                ) : (
-                  <div className="bg-red-100 text-red-600 w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold mx-auto">
-                    {selectedAnak.full_name?.charAt(0)}
-                  </div>
-                )}
-                <div style={{ position: 'absolute', bottom: '0', right: '0', background: '#CC0000', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid white' }}>
+                {selectedAnak.foto_url
+                  ? <img src={selectedAnak.foto_url} alt="" className="w-24 h-24 rounded-full object-cover mx-auto" />
+                  : <div className="bg-red-100 text-red-600 w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold mx-auto">{selectedAnak.full_name?.charAt(0)}</div>}
+                <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#CC0000', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid white' }}>
                   <FiCamera size={14} color="white" />
                 </div>
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoChange} style={{ display: 'none' }} />
               <p className="text-xs text-gray-400 mt-2">{uploading ? '⏳ Mengupload...' : 'Tap foto untuk mengubah'}</p>
             </div>
-
             <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Nama</span>
-                <span className="text-sm font-medium text-gray-800">{selectedAnak.full_name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">NIS</span>
-                <span className="text-sm font-medium text-gray-800">{selectedAnak.nis}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Kelas</span>
-                <span className="text-sm font-medium text-gray-800">{selectedAnak.kelas?.nama_kelas}</span>
-              </div>
+              <div className="flex justify-between"><span className="text-sm text-gray-500">Nama</span><span className="text-sm font-medium text-gray-800">{selectedAnak.full_name}</span></div>
+              <div className="flex justify-between"><span className="text-sm text-gray-500">NIS</span><span className="text-sm font-medium text-gray-800">{selectedAnak.nis}</span></div>
+              <div className="flex justify-between"><span className="text-sm text-gray-500">Kelas</span><span className="text-sm font-medium text-gray-800">{selectedAnak.kelas?.nama_kelas}</span></div>
             </div>
-
-            {anakList.length > 1 && (
-              <div className="mt-4">
-                <p className="text-xs text-gray-500 mb-2">Anak Lainnya</p>
-                <div className="flex gap-2 flex-wrap">
-                  {anakList.filter(a => a.id !== selectedAnak.id).map(a => (
-                    <button key={a.id} type="button"
-                      onClick={() => { setSelectedAnak(a); }}
-                      className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600">
-                      {a.full_name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -784,52 +526,25 @@ export default function DashboardOrangtua() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50" onClick={() => setShowChatModal(false)}>
           <div className="bg-white rounded-t-2xl w-full max-w-lg flex flex-col" style={{ height: '80vh' }} onClick={e => e.stopPropagation()}>
             <div className="bg-red-600 text-white px-5 py-4 rounded-t-2xl flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FiMessageCircle size={20} />
-                <h2 className="text-lg font-bold">Bantuan Admin</h2>
-              </div>
+              <div className="flex items-center gap-2"><FiMessageCircle size={20} /><h2 className="text-lg font-bold">Bantuan Admin</h2></div>
               <button type="button" onClick={() => setShowChatModal(false)}><FiX size={20} /></button>
             </div>
-
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-              {chatList.length === 0 ? (
-                <div className="text-center py-10 text-gray-400">
-                  <p className="text-4xl mb-2">💬</p>
-                  <p className="text-sm">Belum ada percakapan</p>
-                  <p className="text-xs mt-1">Kirim pesan untuk memulai chat dengan admin</p>
-                </div>
-              ) : chatList.map(msg => (
-                <div key={msg.id} style={{ display: 'flex', justifyContent: msg.pengirim === 'orangtua' ? 'flex-end' : 'flex-start', marginBottom: '10px' }}>
-                  <div style={{
-                    maxWidth: '75%',
-                    padding: '10px 14px',
-                    borderRadius: '16px',
-                    background: msg.pengirim === 'orangtua' ? '#CC0000' : '#F3F4F6',
-                    color: msg.pengirim === 'orangtua' ? 'white' : '#1a1a1a'
-                  }}>
-                    {msg.pengirim === 'admin' && <p className="text-xs font-bold text-red-600 mb-1">Admin Sekolah</p>}
-                    <p className="text-sm">{msg.isi_pesan}</p>
-                    <p style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>
-                      {new Date(msg.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </p>
+              {chatList.length === 0
+                ? <div className="text-center py-10 text-gray-400"><p className="text-4xl mb-2">💬</p><p className="text-sm">Belum ada percakapan</p></div>
+                : chatList.map(msg => (
+                  <div key={msg.id} style={{ display: 'flex', justifyContent: msg.pengirim === 'orangtua' ? 'flex-end' : 'flex-start', marginBottom: '10px' }}>
+                    <div style={{ maxWidth: '75%', padding: '10px 14px', borderRadius: '16px', background: msg.pengirim === 'orangtua' ? '#CC0000' : '#F3F4F6', color: msg.pengirim === 'orangtua' ? 'white' : '#1a1a1a' }}>
+                      {msg.pengirim === 'admin' && <p className="text-xs font-bold text-red-600 mb-1">Admin Sekolah</p>}
+                      <p className="text-sm">{msg.isi_pesan}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
               <div ref={chatEndRef} />
             </div>
-
             <div className="border-t p-3 flex items-center gap-2">
-              <input
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSendChat()}
-                placeholder="Tulis pesan..."
-                className="flex-1 px-4 py-2.5 border rounded-full focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
-              />
-              <button type="button" onClick={handleSendChat} disabled={sendingChat || !chatInput.trim()}
-                className="bg-red-600 text-white p-3 rounded-full disabled:opacity-50">
-                <FiSend size={18} />
-              </button>
+              <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSendChat()} placeholder="Tulis pesan..." className="flex-1 px-4 py-2.5 border rounded-full focus:outline-none text-sm" />
+              <button type="button" onClick={handleSendChat} disabled={sendingChat || !chatInput.trim()} className="bg-red-600 text-white p-3 rounded-full disabled:opacity-50"><FiSend size={18} /></button>
             </div>
           </div>
         </div>
@@ -840,36 +555,21 @@ export default function DashboardOrangtua() {
 
 function AbsensiDetail({ siswaId }) {
   const [list, setList] = useState([]);
-
   useEffect(() => {
-    supabase.from('absensi').select('*').eq('siswa_id', siswaId)
-      .order('tanggal', { ascending: false }).limit(20)
-      .then(({ data }) => setList(data || []));
+    supabase.from('absensi').select('*').eq('siswa_id', siswaId).order('tanggal', { ascending: false }).limit(20).then(({ data }) => setList(data || []));
   }, [siswaId]);
-
-  const statusStyle = {
-    Hadir: 'bg-green-100 text-green-700',
-    Izin: 'bg-yellow-100 text-yellow-700',
-    Sakit: 'bg-blue-100 text-blue-700',
-    Alpa: 'bg-red-100 text-red-700',
-  };
-
+  const statusStyle = { Hadir: 'bg-green-100 text-green-700', Izin: 'bg-yellow-100 text-yellow-700', Sakit: 'bg-blue-100 text-blue-700', Alpa: 'bg-red-100 text-red-700' };
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm">
       <h3 className="font-bold text-gray-800 mb-3">Riwayat Absensi</h3>
-      {list.length === 0 ? (
-        <p className="text-center text-gray-400 py-4">Belum ada data</p>
-      ) : list.map(item => (
-        <div key={item.id} className="flex items-center justify-between py-2.5 border-b last:border-0">
-          <div>
+      {list.length === 0
+        ? <p className="text-center text-gray-400 py-4">Belum ada data</p>
+        : list.map(item => (
+          <div key={item.id} className="flex items-center justify-between py-2.5 border-b last:border-0">
             <p className="font-medium text-gray-800 text-sm">{item.tanggal}</p>
-            {item.keterangan && <p className="text-xs text-gray-400">{item.keterangan}</p>}
+            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${statusStyle[item.status]}`}>{item.status}</span>
           </div>
-          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${statusStyle[item.status]}`}>
-            {item.status}
-          </span>
-        </div>
-      ))}
+        ))}
     </div>
   );
 }
