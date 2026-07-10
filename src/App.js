@@ -23,6 +23,7 @@ import PrestasiGuru from './pages/guru/Prestasi';
 import PengumumanGuru from './pages/guru/Pengumuman';
 import AdministrasiGuru from './pages/guru/Administrasi';
 import LaporanSemesterGuru from './pages/guru/LaporanSemester';
+import MateriHarianGuru from './pages/guru/MateriHarian';
 import ATPGuru from './pages/guru/admin/ATP';
 import TPGuru from './pages/guru/admin/TP';
 import RPPGuru from './pages/guru/admin/RPP';
@@ -33,6 +34,7 @@ import LKPDGuru from './pages/guru/admin/LKPD';
 import PenilaianGuruAdmin from './pages/guru/admin/Penilaian';
 import DaftarNilaiGuru from './pages/guru/admin/DaftarNilai';
 import JurnalGuru from './pages/guru/admin/Jurnal';
+import MateriHarianOrangtua from './pages/orangtua/MateriHarian';
 
 
 function ProtectedRoute({ children }) {
@@ -87,6 +89,7 @@ function App() {
         <Route path="/guru/pengumuman" element={<ProtectedRoute><PengumumanGuru /></ProtectedRoute>} />
         <Route path="/guru/administrasi" element={<ProtectedRoute><AdministrasiGuru /></ProtectedRoute>} />
         <Route path="/guru/laporan" element={<ProtectedRoute><LaporanSemesterGuru /></ProtectedRoute>} />
+        <Route path="/guru/materi" element={<ProtectedRoute><MateriHarianGuru /></ProtectedRoute>} />
         <Route path="/guru/admin/atp" element={<ProtectedRoute><ATPGuru /></ProtectedRoute>} />
         <Route path="/guru/admin/tp" element={<ProtectedRoute><TPGuru /></ProtectedRoute>} />
         <Route path="/guru/admin/rpp" element={<ProtectedRoute><RPPGuru /></ProtectedRoute>} />
@@ -100,6 +103,7 @@ function App() {
 
         {/* ===== ORANG TUA ===== */}
         <Route path="/orangtua/dashboard" element={<ProtectedRoute><DashboardOrangtua /></ProtectedRoute>} />
+        <Route path="/orangtua/materi" element={<ProtectedRoute><MateriHarianOrangtua /></ProtectedRoute>} />
 
         {/* ===== KEPALA SEKOLAH ===== */}
         <Route path="/kepsek/dashboard" element={<ProtectedRoute><DashboardKepsek /></ProtectedRoute>} />

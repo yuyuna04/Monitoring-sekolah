@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { FiHome, FiCalendar, FiBook, FiBell, FiUser, FiLogOut, FiX, FiCamera, FiSend, FiMessageCircle } from 'react-icons/fi';
+import { FiHome, FiCalendar, FiBook, FiBell, FiUser, FiLogOut, FiX, FiCamera, FiSend, FiMessageCircle, FiBookOpen } from 'react-icons/fi';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { PieChart, Pie, Cell } from 'recharts';
 
@@ -266,6 +266,18 @@ export default function DashboardOrangtua() {
                   <p className="text-yellow-700 text-sm">⚠️ Data anak belum dihubungkan. Hubungi admin sekolah.</p>
                 </div>
               )}
+
+              <button type="button" onClick={() => navigate('/orangtua/materi')}
+                className="w-full bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4 text-left">
+                <div style={{ background: '#FFF0F0', color: '#CC0000', width: '50px', height: '50px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <FiBookOpen size={22} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-gray-800">Materi Harian</p>
+                  <p className="text-xs text-gray-400">Lihat materi yang diajarkan hari ini</p>
+                </div>
+                <span className="text-gray-300 text-xl">›</span>
+              </button>
 
               {selectedAnak && (
                 <div className="grid grid-cols-2 gap-3">
