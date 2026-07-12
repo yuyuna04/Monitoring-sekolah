@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { FiLogOut, FiCalendar, FiBook, FiBell, FiTrendingUp, FiAward, FiFileText, FiClipboard, FiBookOpen } from 'react-icons/fi';
+import { FiLogOut, FiCalendar, FiBook, FiBell, FiTrendingUp, FiAward, FiFileText, FiClipboard, FiBookOpen, FiCamera, FiPrinter, FiUser } from 'react-icons/fi';
 
 export default function DashboardGuru() {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ export default function DashboardGuru() {
     if (!user) return;
     const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
     if (profile) setNamaGuru(profile.full_name);
-    const { data: kelas } = await supabase.from('kelas').select('id, nama_kelas').eq('guru_id', user.id);
+    const { data: kelas } = await supabase.from('kelas').select('id, nama_kelas').eq('wali_kelas_id', user.id);
     if (kelas && kelas.length > 0) {
       setTotalKelas(kelas.length);
       const kelasIds = kelas.map(k => k.id);
@@ -39,7 +39,10 @@ export default function DashboardGuru() {
   };
 
   const menus = [
-    { icon: <FiCalendar size={24} />, label: 'Input Absensi', sublabel: 'Catat kehadiran siswa', path: '/guru/absensi', color: '#3B82F6', bg: '#EFF6FF' },
+    { icon: <FiCamera size={24} />, label: 'Scan Absensi', sublabel: 'Scan QR siswa untuk absen', path: '/guru/scan-absensi', color: '#059669', bg: '#ECFDF5' },
+    { icon: <FiCalendar size={24} />, label: 'Input Absensi', sublabel: 'Catat kehadiran siswa manual', path: '/guru/absensi', color: '#3B82F6', bg: '#EFF6FF' },
+    { icon: <FiPrinter size={24} />, label: 'Cetak Kartu QR', sublabel: 'Cetak kartu QR absensi siswa', path: '/guru/cetak-qr', color: '#0891B2', bg: '#ECFEFF' },
+    { icon: <FiUser size={24} />, label: 'Data Siswa Lengkap', sublabel: 'Kelola data lengkap siswa kelas Anda', path: '/guru/input-nisn', color: '#DB2777', bg: '#FDF2F8' },
     { icon: <FiBook size={24} />, label: 'Input Nilai', sublabel: 'Kelola nilai siswa', path: '/guru/nilai', color: '#10B981', bg: '#ECFDF5' },
     { icon: <FiBookOpen size={24} />, label: 'Materi Harian', sublabel: 'Catat materi & catatan harian', path: '/guru/materi', color: '#0EA5E9', bg: '#F0F9FF' },
     { icon: <FiTrendingUp size={24} />, label: 'Perkembangan', sublabel: 'Pantau perkembangan siswa', path: '/guru/perkembangan', color: '#F59E0B', bg: '#FFFBEB' },

@@ -19,7 +19,7 @@ export default function MateriHarianGuru() {
 
   const fetchKelas = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    const { data } = await supabase.from('kelas').select('*').eq('guru_id', user.id).order('nama_kelas');
+    const { data } = await supabase.from('kelas').select('*').eq('wali_kelas_id', user.id).order('nama_kelas');
     setKelasList(data || []);
   };
 

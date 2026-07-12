@@ -26,11 +26,11 @@ export default function AbsensiGuru() {
   useEffect(() => { fetchKelas(); }, []);
   useEffect(() => {
     if (selectedKelas) {
-      fetchSiswa();
+      if (activeTab === 'harian') fetchSiswa();
       if (activeTab === 'bulanan') fetchRekapBulan();
       if (activeTab === 'semester') fetchRekapSemester();
     }
-  }, [selectedKelas, activeTab, bulan, semester]); // eslint-disable-line
+  }, [selectedKelas, activeTab, tanggal, bulan, semester]); // eslint-disable-line
 
   const fetchKelas = async () => {
     const { data } = await supabase.from('kelas').select('*').order('nama_kelas');
@@ -41,8 +41,17 @@ export default function AbsensiGuru() {
     const { data } = await supabase.from('siswa').select('*')
       .eq('kelas_id', selectedKelas).order('full_name');
     setSiswaList(data || []);
+
+    const { data: absensiHariIni } = await supabase.from('absensi')
+      .select('siswa_id, status')
+      .eq('kelas_id', selectedKelas)
+      .eq('tanggal', tanggal);
+
     const init = {};
-    data?.forEach(s => { init[s.id] = 'Hadir'; });
+    data?.forEach(s => {
+      const existing = absensiHariIni?.find(a => a.siswa_id === s.id);
+      init[s.id] = existing ? existing.status : 'Hadir';
+    });
     setAbsensi(init);
   };
 
@@ -230,6 +239,7 @@ export default function AbsensiGuru() {
                   {kelasList.map(k => <option key={k.id} value={k.id}>{k.nama_kelas}</option>)}
                 </select>
               </div>
+              <p className="text-xs text-gray-400">📡 Status yang sudah tercatat (misal dari scan QR) otomatis ditampilkan di sini.</p>
             </div>
 
             {siswaList.length > 0 && (

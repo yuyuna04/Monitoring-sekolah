@@ -24,6 +24,9 @@ import PengumumanGuru from './pages/guru/Pengumuman';
 import AdministrasiGuru from './pages/guru/Administrasi';
 import LaporanSemesterGuru from './pages/guru/LaporanSemester';
 import MateriHarianGuru from './pages/guru/MateriHarian';
+import CetakQRGuru from './pages/guru/CetakQR';
+import ScanAbsensiGuru from './pages/guru/ScanAbsensi';
+import InputNISNGuru from './pages/guru/InputNISN';
 import ATPGuru from './pages/guru/admin/ATP';
 import TPGuru from './pages/guru/admin/TP';
 import RPPGuru from './pages/guru/admin/RPP';
@@ -90,6 +93,9 @@ function App() {
         <Route path="/guru/administrasi" element={<ProtectedRoute><AdministrasiGuru /></ProtectedRoute>} />
         <Route path="/guru/laporan" element={<ProtectedRoute><LaporanSemesterGuru /></ProtectedRoute>} />
         <Route path="/guru/materi" element={<ProtectedRoute><MateriHarianGuru /></ProtectedRoute>} />
+        <Route path="/guru/cetak-qr" element={<ProtectedRoute><CetakQRGuru /></ProtectedRoute>} />
+        <Route path="/guru/scan-absensi" element={<ProtectedRoute><ScanAbsensiGuru /></ProtectedRoute>} />
+        <Route path="/guru/input-nisn" element={<ProtectedRoute><InputNISNGuru /></ProtectedRoute>} />
         <Route path="/guru/admin/atp" element={<ProtectedRoute><ATPGuru /></ProtectedRoute>} />
         <Route path="/guru/admin/tp" element={<ProtectedRoute><TPGuru /></ProtectedRoute>} />
         <Route path="/guru/admin/rpp" element={<ProtectedRoute><RPPGuru /></ProtectedRoute>} />
