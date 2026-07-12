@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { FiMail, FiLock, FiEye, FiEyeOff, FiUser, FiKey } from 'react-icons/fi';
+import InstallButton from '../components/InstallButton';
+
 
 const KODE_GURU = 'GURU2024';
 const KODE_KEPSEK = 'KEPSEK2024';
@@ -266,6 +268,8 @@ export default function Login() {
         marginTop: '-16px', padding: '24px 20px 40px',
         position: 'relative', zIndex: 20, boxShadow: '0 -4px 20px rgba(0,0,0,0.1)'
       }}>
+        <InstallButton />
+
         {mode !== 'lupa' && (
           <div style={{ display: 'flex', background: '#E9ECEF', borderRadius: '16px', padding: '4px', marginBottom: '20px' }}>
             <button type="button" onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
